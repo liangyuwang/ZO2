@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from .config import ModelConfig, MezoConfig
+from .configs import ModelConfig, MezoConfig
 from .nanogpt_mezo import GPT2ModelMezo
 
 

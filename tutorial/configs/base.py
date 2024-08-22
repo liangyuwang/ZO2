@@ -16,9 +16,9 @@ class ModelConfig:
     dropout: float = 0.0
     epsilon: float = 1e-5
     device: torch.device = "cuda:0"
-    dtype: torch.dtype = torch.bfloat16  # model precision
-    share_emb: bool = False  # share embedding weight or not. See https://arxiv.org/abs/1706.03762
-    attention: str = "flash_attention"  # "standard_attention", "flash_attention"
+    dtype: torch.dtype = torch.float32  # model precision
+    share_emb: bool = True  # share embedding weight or not. See https://arxiv.org/abs/1706.03762
+    attention: str = "standard_attention"  # "standard_attention", "flash_attention"
 
 @dataclass
 class TrainConfig:
@@ -26,7 +26,7 @@ class TrainConfig:
     epoch: int = -1
     total_token_batch_size: int = 1024 * 2  # 524288, 2**19, about 0.5 tokens per batch
     warmup_steps: int = 715
-    max_steps: int = 50
+    max_steps: int = 10
     check_every_steps: int = 1
     val_every_steps: int = 250
     save_every_steps: int = 5000

@@ -6,24 +6,9 @@ import torch.nn as nn
 from torch.nn import functional as F
 from dataclasses import dataclass
 
-# modified from https://github.com/karpathy/build-nanogpt/blob/master/train_gpt2.py
+from .configs import ModelConfig
 
-@dataclass
-class ModelConfig:
-    batch_size: int = 1
-    block_size: int = 1024
-    vocab_size: int = 50257
-    pad_size: int = 50304  # pad vocab_size to be more efficient
-    n_embd: int = 768      # 768, 2048
-    n_head: int = 12       # 12, 32
-    n_layer: int = 12       # 12, 22
-    use_bias: bool = False
-    dropout: float = 0.0
-    epsilon: float = 1e-5
-    device: torch.device = "cuda:0"
-    dtype: torch.dtype = torch.bfloat16  # model precision
-    share_emb: bool = False  # share embedding weight or not. See https://arxiv.org/abs/1706.03762
-    attention: str = "flash_attention"  # "standard_attention", "flash_attention"
+# modified from https://github.com/karpathy/build-nanogpt/blob/master/train_gpt2.py
 
 # Masked Multi-Head Self-Attention
 
