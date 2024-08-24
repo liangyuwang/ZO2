@@ -9,7 +9,7 @@ cleanup() {
     done
     echo "Monitoring processes terminated."
     # Uncomment the following line if you also want to kill the C++ program on Ctrl+C
-    # kill $CPP_PID 2>/dev/null
+    # kill $RUN_PID 2>/dev/null
     echo "Exiting script."
     exit 0
 }
@@ -19,7 +19,7 @@ GPU_IDS=(0)  # Add more GPU IDs as needed, e.g. (0 1 2 3)
 
 # Run the C++ executable in the background
 python tutorial/train.py &
-CPP_PID=$!
+RUN_PID=$!
 
 # Array to hold the PIDs of the nvidia-smi monitoring processes
 declare -a MONITOR_PIDS
@@ -45,7 +45,7 @@ MONITOR_PIDS+=($!)
 trap cleanup SIGINT SIGTERM
 
 # Wait for the C++ program to finish
-wait $CPP_PID
+wait $RUN_PID
 
 # Execute cleanup after the C++ program finishes naturally
 cleanup
