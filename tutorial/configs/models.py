@@ -79,7 +79,7 @@ class OPT_1_3b(ModelConfig): #
     n_layer: int = 24
     device: torch.device = "cuda:0"
     dtype: torch.dtype = torch.float32  # model precision
-    share_emb: bool = True  # share embedding weight or not. See https://arxiv.org/abs/1706.03762
+    share_emb: bool = False  # share embedding weight or not. See https://arxiv.org/abs/1706.03762
     attention: str = "standard_attention"  # "standard_attention", "flash_attention"
 
 @dataclass
@@ -90,7 +90,7 @@ class OPT_2_7b(ModelConfig): #
     n_layer: int = 32
     device: torch.device = "cuda:0"
     dtype: torch.dtype = torch.float32  # model precision
-    share_emb: bool = True  # share embedding weight or not. See https://arxiv.org/abs/1706.03762
+    share_emb: bool = False  # share embedding weight or not. See https://arxiv.org/abs/1706.03762
     attention: str = "standard_attention"  # "standard_attention", "flash_attention"
 
 @dataclass
@@ -101,7 +101,7 @@ class OPT_6_7b(ModelConfig): #
     n_layer: int = 32
     device: torch.device = "cuda:0"
     dtype: torch.dtype = torch.float32  # model precision
-    share_emb: bool = True  # share embedding weight or not. See https://arxiv.org/abs/1706.03762
+    share_emb: bool = False  # share embedding weight or not. See https://arxiv.org/abs/1706.03762
     attention: str = "standard_attention"  # "standard_attention", "flash_attention"
 
 @dataclass

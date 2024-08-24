@@ -77,8 +77,8 @@ def eval_acc():
     (output1_ref, output2_ref), (loss1_ref, loss2_ref) = out_ref[:2]
     (output1, output2), (loss1, loss2) = out[:2]
 
-    print(loss1_ref.item(), loss1.item())
-    print(loss2_ref.item(), loss2.item())
+    print("loss1: ", loss1_ref.item(), loss1.item())
+    print("loss2: ", loss2_ref.item(), loss2.item())
     print(torch.allclose(loss1_ref, loss1))
     print(torch.allclose(loss2_ref, loss2))
     print("diff loss1: ", torch.abs(loss1_ref - loss1).max())
@@ -133,11 +133,7 @@ def train_mezo():
         # train
         model_ref.zo_training = True
         model_ref.grad_accum = False
-        model_ref(**input)
-
-        # eval
-        model_ref.zo_training = False
-        loss = model_ref(**input)[-1]
+        (_, _), (loss, _) = model_ref(**input)
         tqdm.write("Iteration {}, loss: {}".format(i, loss))
 
 def train_mezo_offloading():
@@ -154,22 +150,18 @@ def train_mezo_offloading():
         # train
         model.zo_training = True
         model.grad_accum = False
-        model(**input)
-
-        # # eval
-        # model.zo_training = False
-        # loss = model(**input)[-1]
-        # tqdm.write("Iteration {}, loss: {}".format(i, loss))
+        (_, _), (loss, _) = model(**input)
+        tqdm.write("Iteration {}, loss: {}".format(i, loss))
 
 
 if __name__=="__main__":
-    modelConfig = OPT_30b()
+    modelConfig = OPT_125m()
     trainConfig = TrainConfig()
     mezoConfig = MezoConfig()
 
     # eval_acc()
     # mezo_performance()
-    mezo_offloading_performance(overlap=True)
+    # mezo_offloading_performance(overlap=True)
 
     # train_mezo()
-    # train_mezo_offloading()
+    train_mezo_offloading()

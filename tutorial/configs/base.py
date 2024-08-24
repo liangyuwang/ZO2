@@ -26,7 +26,7 @@ class TrainConfig:
     epoch: int = -1
     total_token_batch_size: int = 1024 * 2  # 524288, 2**19, about 0.5 tokens per batch
     warmup_steps: int = 715
-    max_steps: int = 10
+    max_steps: int = 100
     check_every_steps: int = 1
     val_every_steps: int = 250
     save_every_steps: int = 5000
