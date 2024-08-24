@@ -54,7 +54,7 @@ def eval_acc():
     seed_everything(42)
     model_ref = GPT2ModelMezo(modelConfig, mezoConfig)
     print(f"normal model size: {model_size(model_ref)/1024**3:.2f} B")
-    model = GPT2ModelMezoOffloading(modelConfig, mezoConfig, cuda_device=modelConfig.device)
+    model = GPT2ModelMezoOffloading(modelConfig, mezoConfig, offloadingConfig)
     print(f"Offloading model size: {model_size(model)/1024**3:.2f} B")
     for name_ref, p_ref in model_ref.named_parameters():
         for name, p in model.named_parameters():
@@ -104,7 +104,7 @@ def mezo_performance():
 
 def mezo_offloading_performance(overlap=True):
     seed_everything(42)
-    model = GPT2ModelMezoOffloading(modelConfig, mezoConfig, cuda_device=modelConfig.device)
+    model = GPT2ModelMezoOffloading(modelConfig, mezoConfig, offloadingConfig)
     model.overlap = overlap
     print(f"Offloading model size: {model_size(model)/1024**3:.2f} B")
     print("Init dataset")
@@ -138,7 +138,7 @@ def train_mezo():
 
 def train_mezo_offloading():
     seed_everything(42)
-    model = GPT2ModelMezoOffloading(modelConfig, mezoConfig, cuda_device=modelConfig.device)
+    model = GPT2ModelMezoOffloading(modelConfig, mezoConfig, offloadingConfig)
     print(f"normal model size: {model_size(model)/1024**3:.2f} B")
     print("Init dataset")
     B, T = modelConfig.batch_size, modelConfig.block_size
@@ -158,6 +158,7 @@ if __name__=="__main__":
     modelConfig = OPT_125m()
     trainConfig = TrainConfig()
     mezoConfig = MezoConfig()
+    offloadingConfig = OffloadingConfig()
 
     # eval_acc()
     # mezo_performance()

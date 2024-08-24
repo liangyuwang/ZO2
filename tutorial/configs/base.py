@@ -56,3 +56,12 @@ class MezoConfig:
     zo_lr: float = 1e-3
     zo_weight_decay: float = 1e-1
 
+@dataclass
+class OffloadingConfig:
+    offload_to_device: torch.device = "cpu"
+    offload_from_device: torch.device = "cuda:0"
+    overlap: bool = True    # if you want to make communication-computation overlap, 'True' will be faster.
+    offload_every_blocks: int = 2   # how many layers per interval do you want to offload a layer
+    empty_cache_every_blocks: int = 1   # frequency of empty cache
+    offload_use_amp: bool = True
+    offload_amp_dtype: torch.dtype = torch.bfloat16
