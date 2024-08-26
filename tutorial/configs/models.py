@@ -12,9 +12,9 @@ class GPT2_small(ModelConfig):  # 125 M
     n_head: int = 12
     n_layer: int = 12
     device: torch.device = "cuda:0"
-    dtype: torch.dtype = torch.float32  # model precision
-    share_emb: bool = True  # share embedding weight or not. See https://arxiv.org/abs/1706.03762
-    attention: str = "standard_attention"  # "standard_attention", "flash_attention"
+    dtype: torch.dtype = torch.float32
+    share_emb: bool = True
+    attention: str = "standard_attention"
 
 @dataclass
 class GPT2_medium(ModelConfig): # 
@@ -23,9 +23,9 @@ class GPT2_medium(ModelConfig): #
     n_head: int = 16
     n_layer: int = 24
     device: torch.device = "cuda:0"
-    dtype: torch.dtype = torch.float32  # model precision
-    share_emb: bool = True  # share embedding weight or not. See https://arxiv.org/abs/1706.03762
-    attention: str = "standard_attention"  # "standard_attention", "flash_attention"
+    dtype: torch.dtype = torch.float32
+    share_emb: bool = True
+    attention: str = "standard_attention"
 
 @dataclass
 class GPT2_large(ModelConfig):  # 
@@ -34,9 +34,9 @@ class GPT2_large(ModelConfig):  #
     n_head: int = 20
     n_layer: int = 36
     device: torch.device = "cuda:0"
-    dtype: torch.dtype = torch.float32  # model precision
-    share_emb: bool = True  # share embedding weight or not. See https://arxiv.org/abs/1706.03762
-    attention: str = "standard_attention"  # "standard_attention", "flash_attention"
+    dtype: torch.dtype = torch.float32
+    share_emb: bool = True
+    attention: str = "standard_attention"
 
 @dataclass
 class GPT2_xl(ModelConfig): # 
@@ -45,9 +45,9 @@ class GPT2_xl(ModelConfig): #
     n_head: int = 25
     n_layer: int = 48
     device: torch.device = "cuda:0"
-    dtype: torch.dtype = torch.float32  # model precision
-    share_emb: bool = True  # share embedding weight or not. See https://arxiv.org/abs/1706.03762
-    attention: str = "standard_attention"  # "standard_attention", "flash_attention"
+    dtype: torch.dtype = torch.float32
+    share_emb: bool = True
+    attention: str = "standard_attention"
 
 @dataclass
 class OPT_125m(ModelConfig): # 
@@ -56,9 +56,9 @@ class OPT_125m(ModelConfig): #
     n_head: int = 12
     n_layer: int = 12
     device: torch.device = "cuda:0"
-    dtype: torch.dtype = torch.float32  # model precision
-    share_emb: bool = True  # share embedding weight or not. See https://arxiv.org/abs/1706.03762
-    attention: str = "standard_attention"  # "standard_attention", "flash_attention"
+    dtype: torch.dtype = torch.float32
+    share_emb: bool = True
+    attention: str = "standard_attention"
 
 @dataclass
 class OPT_350m(ModelConfig): # 
@@ -67,9 +67,9 @@ class OPT_350m(ModelConfig): #
     n_head: int = 16
     n_layer: int = 24
     device: torch.device = "cuda:0"
-    dtype: torch.dtype = torch.float32  # model precision
-    share_emb: bool = True  # share embedding weight or not. See https://arxiv.org/abs/1706.03762
-    attention: str = "standard_attention"  # "standard_attention", "flash_attention"
+    dtype: torch.dtype = torch.float32
+    share_emb: bool = True
+    attention: str = "standard_attention"
 
 @dataclass
 class OPT_1_3b(ModelConfig): # 
@@ -78,9 +78,9 @@ class OPT_1_3b(ModelConfig): #
     n_head: int = 32
     n_layer: int = 24
     device: torch.device = "cuda:0"
-    dtype: torch.dtype = torch.float32  # model precision
-    share_emb: bool = False  # share embedding weight or not. See https://arxiv.org/abs/1706.03762
-    attention: str = "standard_attention"  # "standard_attention", "flash_attention"
+    dtype: torch.dtype = torch.float32
+    share_emb: bool = False
+    attention: str = "flash_attention"
 
 @dataclass
 class OPT_2_7b(ModelConfig): # 
@@ -89,9 +89,9 @@ class OPT_2_7b(ModelConfig): #
     n_head: int = 32
     n_layer: int = 32
     device: torch.device = "cuda:0"
-    dtype: torch.dtype = torch.float32  # model precision
-    share_emb: bool = False  # share embedding weight or not. See https://arxiv.org/abs/1706.03762
-    attention: str = "standard_attention"  # "standard_attention", "flash_attention"
+    dtype: torch.dtype = torch.float32
+    share_emb: bool = False
+    attention: str = "flash_attention"
 
 @dataclass
 class OPT_6_7b(ModelConfig): # 
@@ -100,9 +100,9 @@ class OPT_6_7b(ModelConfig): #
     n_head: int = 32
     n_layer: int = 32
     device: torch.device = "cuda:0"
-    dtype: torch.dtype = torch.float32  # model precision
-    share_emb: bool = False  # share embedding weight or not. See https://arxiv.org/abs/1706.03762
-    attention: str = "standard_attention"  # "standard_attention", "flash_attention"
+    dtype: torch.dtype = torch.float32
+    share_emb: bool = False
+    attention: str = "flash_attention"
 
 @dataclass
 class OPT_13b(ModelConfig): # 
@@ -111,9 +111,9 @@ class OPT_13b(ModelConfig): #
     n_head: int = 40
     n_layer: int = 40
     device: torch.device = "cuda:0"
-    dtype: torch.dtype = torch.float32  # model precision
-    share_emb: bool = False  # share embedding weight or not. See https://arxiv.org/abs/1706.03762
-    attention: str = "standard_attention"  # "standard_attention", "flash_attention"
+    dtype: torch.dtype = torch.float32
+    share_emb: bool = False
+    attention: str = "flash_attention"
 
 @dataclass
 class OPT_30b(ModelConfig): # 
@@ -122,9 +122,9 @@ class OPT_30b(ModelConfig): #
     n_head: int = 56
     n_layer: int = 48
     device: torch.device = "cuda:0"
-    dtype: torch.dtype = torch.float32  # model precision
-    share_emb: bool = False  # share embedding weight or not. See https://arxiv.org/abs/1706.03762
-    attention: str = "flash_attention"  # "standard_attention", "flash_attention"
+    dtype: torch.dtype = torch.float32
+    share_emb: bool = False
+    attention: str = "flash_attention"
 
 @dataclass
 class OPT_66b(ModelConfig): # 
@@ -133,9 +133,9 @@ class OPT_66b(ModelConfig): #
     n_head: int = 72
     n_layer: int = 64
     device: torch.device = "cuda:0"
-    dtype: torch.dtype = torch.float32  # model precision
-    share_emb: bool = False  # share embedding weight or not. See https://arxiv.org/abs/1706.03762
-    attention: str = "flash_attention"  # "standard_attention", "flash_attention"
+    dtype: torch.dtype = torch.float32
+    share_emb: bool = False
+    attention: str = "flash_attention"
 
 @dataclass
 class OPT_175b(ModelConfig): # 
@@ -144,6 +144,6 @@ class OPT_175b(ModelConfig): #
     n_head: int = 96
     n_layer: int = 96
     device: torch.device = "cuda:0"
-    dtype: torch.dtype = torch.float32  # model precision
-    share_emb: bool = False  # share embedding weight or not. See https://arxiv.org/abs/1706.03762
-    attention: str = "flash_attention"  # "standard_attention", "flash_attention"
+    dtype: torch.dtype = torch.float32
+    share_emb: bool = False
+    attention: str = "flash_attention"

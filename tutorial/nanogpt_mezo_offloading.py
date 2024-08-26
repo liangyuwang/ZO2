@@ -112,7 +112,7 @@ class GPT2ModelMezoOffloading(GPT2ModelMezo):
         for i in range(len(self.transformer.h)):
             if i not in self.offload_layer_ids:
                 self.transformer.h[i] = self.transformer.h[i].to(offloadingConfig.offload_from_device)
-    
+
     def offloading_error_handler(self, alpha=0.5):
         block_size = sum(p.numel() for p in self.transformer.h.parameters())
         model_size = sum(p.numel() for p in self.parameters())
@@ -158,7 +158,9 @@ class GPT2ModelMezoOffloading(GPT2ModelMezo):
 
     ############## MeZO ##############
 
+    @torch.inference_mode
     def zo_forward(self, idx, targets=None):
+        self.set_random_seed()
         # idx is of shape (B, T)
         B, T = idx.size()
         device = idx.device
@@ -174,8 +176,7 @@ class GPT2ModelMezoOffloading(GPT2ModelMezo):
         pos = torch.arange(0, T, dtype=torch.long, device=device) # shape (T)
         pos_emb1, pos_emb2 = self.zo_dual_forward(self.transformer.wpe, (pos, pos))
         tok_emb1, tok_emb2 = self.zo_dual_forward(self.transformer.wte, (idx, idx))
-        with torch.inference_mode():
-            x1, x2 = tok_emb1 + pos_emb1, tok_emb2 + pos_emb2
+        x1, x2 = tok_emb1 + pos_emb1, tok_emb2 + pos_emb2
         
         # forward the blocks of the transformer
         for i in range(1, self.config.n_layer):
@@ -215,10 +216,9 @@ class GPT2ModelMezoOffloading(GPT2ModelMezo):
         logits1, logits2 = self.zo_dual_forward(self.lm_head, (x1, x2))
         loss1 = loss2 = None
         if targets is not None:
-            with torch.inference_mode():
-                loss1 = F.cross_entropy(logits1.view(-1, logits1.size(-1)), targets.view(-1))
-                loss2 = F.cross_entropy(logits2.view(-1, logits2.size(-1)), targets.view(-1))
-                self.zo_final_step(loss1, loss2)
+            loss1 = F.cross_entropy(logits1.view(-1, logits1.size(-1)), targets.view(-1))
+            loss2 = F.cross_entropy(logits2.view(-1, logits2.size(-1)), targets.view(-1))
+            self.zo_final_step(loss1, loss2)
         
         # Offloading added: sync final CPU offloading
         if self.offloadingConfig.overlap and self.config.n_layer-1 in self.offload_layer_ids:

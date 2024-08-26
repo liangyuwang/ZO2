@@ -4,6 +4,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import math
 import time
+import numpy as np
 from copy import deepcopy
 from tqdm.auto import tqdm
 import torch
@@ -62,7 +63,9 @@ class GPT2ModelMezo(nn.Module):
     ############## MeZO ##############
     # inspired by https://github.com/princeton-nlp/MeZO/blob/main/large_models/trainer.py
 
+    @torch.inference_mode
     def zo_forward(self, idx, targets=None):
+        self.set_random_seed()
         # idx is of shape (B, T)
         B, T = idx.size()
         assert T <= self.config.block_size, f"Cannot forward sequence of length {T}, block size is only {self.config.block_size}"
@@ -70,8 +73,7 @@ class GPT2ModelMezo(nn.Module):
         pos = torch.arange(0, T, dtype=torch.long, device=idx.device) # shape (T)
         pos_emb1, pos_emb2 = self.zo_dual_forward(self.transformer.wpe, (pos, pos))
         tok_emb1, tok_emb2 = self.zo_dual_forward(self.transformer.wte, (idx, idx))
-        with torch.inference_mode():
-            x1, x2 = tok_emb1 + pos_emb1, tok_emb2 + pos_emb2
+        x1, x2 = tok_emb1 + pos_emb1, tok_emb2 + pos_emb2
         # forward the blocks of the transformer
         for block in self.transformer.h:
             x1, x2 = self.zo_dual_forward(block, (x1, x2))
@@ -80,12 +82,12 @@ class GPT2ModelMezo(nn.Module):
         logits1, logits2 = self.zo_dual_forward(self.lm_head, (x1, x2))
         loss1 = loss2 = None
         if targets is not None:
-            with torch.inference_mode():
-                loss1 = F.cross_entropy(logits1.view(-1, logits1.size(-1)), targets.view(-1))
-                loss2 = F.cross_entropy(logits2.view(-1, logits2.size(-1)), targets.view(-1))
-                self.zo_final_step(loss1, loss2)
+            loss1 = F.cross_entropy(logits1.view(-1, logits1.size(-1)), targets.view(-1))
+            loss2 = F.cross_entropy(logits2.view(-1, logits2.size(-1)), targets.view(-1))
+            self.zo_final_step(loss1, loss2)
         return (logits1, logits2), (loss1, loss2)
     
+    @torch.inference_mode
     def zo_dual_forward(self, module:nn.Module, dual_inputs):
         input1, input2 = dual_inputs
         if self.projected_grad != 0:
@@ -94,17 +96,17 @@ class GPT2ModelMezo(nn.Module):
             self._zo_zero_grad()
         cloned_module = self._zo_module_clone(module)
         self._zo_perturb_parameters(cloned_module, scaling_factor=1)
-        with torch.inference_mode():
-            out1 = cloned_module(input1)
+        out1 = cloned_module(input1)
         self._zo_perturb_parameters(cloned_module, scaling_factor=-2)
-        with torch.inference_mode():
-            out2 = cloned_module(input2)
+        out2 = cloned_module(input2)
         del cloned_module
         return out1, out2
     
+    @torch.inference_mode
     def zo_final_step(self, loss1, loss2):
         self.projected_grad += (loss1 - loss2) / (2 * self.mezoConfig.zo_eps)
     
+    @torch.inference_mode
     def _zo_perturb_parameters(self, module:nn.Module, random_seed=None, scaling_factor=1):
         """
         Perturb the parameters with random vector z.
@@ -113,20 +115,22 @@ class GPT2ModelMezo(nn.Module):
         - scaling_factor: theta = theta + scaling_factor * z * eps
         # """
         # Set the random seed to ensure that we sample the same z for perturbation/update
-        torch.manual_seed(random_seed if random_seed is not None else self.mezoConfig.zo_random_seed)
+        torch.manual_seed(random_seed if random_seed is not None else self.zo_random_seed)
         for name, param in module.named_parameters():
             if param.requires_grad:
                 z = torch.normal(mean=0, std=1, size=param.data.size(), device=param.data.device, dtype=param.data.dtype)
                 param.data = param.data + scaling_factor * z * self.mezoConfig.zo_eps
 
+    @torch.inference_mode
     def _zo_module_clone(self, module:nn.Module):
         cloned_module = deepcopy(module)
         return cloned_module
 
+    @torch.inference_mode
     def _zo_update(self, module:nn.Module):
+        torch.manual_seed(self.zo_random_seed)
         for name, param in module.named_parameters():
             # Resample z
-            torch.manual_seed(self.mezoConfig.zo_random_seed)
             z = torch.normal(mean=0, std=1, size=param.data.size(), device=param.data.device, dtype=param.data.dtype)
             if param.requires_grad:
                 if "bias" not in name and "layer_norm" not in name and "layernorm" not in name:
@@ -134,9 +138,16 @@ class GPT2ModelMezo(nn.Module):
                 else:
                     param.data = param.data - self._get_learning_rate() * (self.projected_grad * z)
 
+    @torch.inference_mode
     def _zo_zero_grad(self):
         self.projected_grad = 0
 
+    @torch.inference_mode
     def _get_learning_rate(self):
         return self.mezoConfig.zo_lr
+
+    @torch.inference_mode
+    def set_random_seed(self):
+        # Sample the random seed for sampling z
+        self.zo_random_seed = np.random.randint(self.mezoConfig.max_zo_random_seed)
 
