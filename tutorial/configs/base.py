@@ -65,3 +65,4 @@ class OffloadingConfig:
     empty_cache_every_blocks: int = 1   # frequency of empty cache
     offload_use_amp: bool = True
     offload_amp_dtype: torch.dtype = torch.bfloat16
+    medium_precision_blocks_on_device: bool = True

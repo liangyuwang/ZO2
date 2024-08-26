@@ -153,7 +153,11 @@ def train_mezo():
         # train
         model_ref.zo_training = True
         model_ref.grad_accum = False
-        (_, _), (loss, _) = model_ref(**input)
+        if offloadingConfig.offload_use_amp:
+            with torch.autocast("cuda", offloadingConfig.offload_amp_dtype):
+                (_, _), (loss, _) = model_ref(**input)
+        else:
+            (_, _), (loss, _) = model_ref(**input)
         tqdm.write("Iteration {}, loss: {}, projected grad: {}".format(i, loss, model_ref.projected_grad.abs()))
 
 def train_mezo_offloading():
@@ -171,7 +175,11 @@ def train_mezo_offloading():
         # train
         model.zo_training = True
         model.grad_accum = False
-        (_, _), (loss, _) = model(**input)
+        if offloadingConfig.offload_use_amp:
+            with torch.autocast("cuda", offloadingConfig.offload_amp_dtype):
+                (_, _), (loss, _) = model(**input)
+        else:
+            (_, _), (loss, _) = model(**input)
         tqdm.write("Iteration {}, loss: {}, projected grad: {}".format(i, loss, model.projected_grad.abs()))
 
 def eval_mezo():
@@ -188,10 +196,9 @@ def eval_mezo():
     input = {"idx": x, "targets": y}
     model_ref.zo_training = False
     model_ref.training = False
-    for i in range(trainConfig.max_steps):
-        with torch.inference_mode():
-            _, loss = model_ref(**input)
-            print(f"loss: {loss}")
+    with torch.inference_mode():
+        _, loss = model_ref(**input)
+        print(f"loss: {loss}")
 
 def eval_mezo_offloading():
     seed_everything(trainConfig.seed)
@@ -206,13 +213,12 @@ def eval_mezo_offloading():
     input = {"idx": x, "targets": y}
     model.zo_training = False
     model.grad_accum = False
-    for i in range(trainConfig.max_steps):
-        with torch.inference_mode():
-            _, loss = model(**input)
-            print(f"loss: {loss}")
+    with torch.inference_mode():
+        _, loss = model(**input)
+        print(f"loss: {loss}")
 
 if __name__=="__main__":
-    modelConfig = OPT_6_7b()
+    modelConfig = OPT_175b()
     trainConfig = TrainConfig()
     mezoConfig = MezoConfig()
     offloadingConfig = OffloadingConfig()
@@ -222,7 +228,7 @@ if __name__=="__main__":
     # mezo_offloading_performance(overlap=True)
 
     # train_mezo()
-    # train_mezo_offloading()
+    train_mezo_offloading()
 
-    eval_mezo()
+    # eval_mezo()
     # eval_mezo_offloading()

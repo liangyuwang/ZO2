@@ -112,6 +112,11 @@ class GPT2ModelMezoOffloading(GPT2ModelMezo):
         for i in range(len(self.transformer.h)):
             if i not in self.offload_layer_ids:
                 self.transformer.h[i] = self.transformer.h[i].to(offloadingConfig.offload_from_device)
+                if offloadingConfig.offload_use_amp and self.offloadingConfig.medium_precision_blocks_on_device:
+                    self.transformer.h[i] = self.transformer.h[i].to(offloadingConfig.offload_amp_dtype)
+            else:
+                if offloadingConfig.offload_use_amp:
+                    self.transformer.h[i] = self.transformer.h[i].to(offloadingConfig.offload_amp_dtype)
 
     def offloading_error_handler(self, alpha=0.5):
         block_size = sum(p.numel() for p in self.transformer.h.parameters())
@@ -156,6 +161,13 @@ class GPT2ModelMezoOffloading(GPT2ModelMezo):
         self.if_layers_fully_uploaded["runtime"] = self.if_layers_fully_uploaded["init"]
         self.uploaded_layer_idx_counter = -1
 
+    @torch.inference_mode
+    def zo_dual_forward(self, module:nn.Module, dual_inputs, amp_cast=False):
+        output = super().zo_dual_forward(module, dual_inputs)
+        if self.offloadingConfig.offload_use_amp and amp_cast:
+            module = module.to(self.offloadingConfig.offload_amp_dtype)
+        return output
+
     ############## MeZO ##############
 
     @torch.inference_mode
@@ -187,7 +199,7 @@ class GPT2ModelMezoOffloading(GPT2ModelMezo):
             
             # last transformer block dual forward
             if self.check_fully_uploaded(i-1):
-                x1, x2 = self.zo_dual_forward(block, (x1, x2))
+                x1, x2 = self.zo_dual_forward(block, (x1, x2), amp_cast=True)
 
             # Offloading added: CPU offloading
             if (i-1) in self.offload_layer_ids:
@@ -205,7 +217,7 @@ class GPT2ModelMezoOffloading(GPT2ModelMezo):
         
         # block final dual forward
         if self.check_fully_uploaded(self.config.n_layer-1):
-            x1, x2 = self.zo_dual_forward(block, (x1, x2))
+            x1, x2 = self.zo_dual_forward(block, (x1, x2), amp_cast=True)
 
         # Offloading added: final CPU offloading
         if (self.config.n_layer-1) in self.offload_layer_ids:
