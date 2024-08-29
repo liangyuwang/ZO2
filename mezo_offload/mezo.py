@@ -1,22 +1,16 @@
 
 import os
-import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import math
-import time
 import numpy as np
 from copy import deepcopy
-from tqdm.auto import tqdm
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
 
-class MezoModel(nn.Module):
+class BaseMezoModel:
 
     def __init__(self):
         self.mezo_config()
-        super().__init__()
     
     ############## MeZO ##############
     # inspired by https://github.com/princeton-nlp/MeZO/blob/main/large_models/trainer.py
@@ -27,8 +21,12 @@ class MezoModel(nn.Module):
         self.non_diff = False
         self.zo_lr = 1e-7
         self.zo_weight_decay = 1e-1
-        self.grad_accum = False
+        self.mezo_args()
+    
+    def mezo_args(self):
         self.zo_training = True
+        self.projected_grad = 0
+        self.grad_accum = False
 
     @torch.inference_mode
     def zo_dual_forward(self, module:nn.Module, dual_inputs, update=True):

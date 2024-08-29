@@ -1,24 +1,17 @@
 
 import os
-import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import math
-import time
-import numpy as np
-from copy import deepcopy
-from tqdm.auto import tqdm
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from .mezo import MezoModel
+from .mezo import BaseMezoModel
 
 
-class MezoOffloadingModel(MezoModel):
+class BaseMezoOffloadingModel(BaseMezoModel):
 
     def __init__(self):
+        self.mezo_config()
         self.offloading_config()
-        super().__init__()
         self.offloading_init()
     
     ############## Uploading / Offloading ##############
@@ -32,7 +25,7 @@ class MezoOffloadingModel(MezoModel):
         self.offload_use_amp: bool = True
         self.offload_amp_dtype: torch.dtype = torch.bfloat16
         self.medium_precision_blocks_on_device: bool = True
-        self.offloading_args()
+        self.offloading_args(n_layer=1)
 
     def offloading_args(self, n_layer):
         if self.offload_every_blocks >= n_layer:

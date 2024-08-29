@@ -3,15 +3,34 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
+from mezo_offload import BaseMezoOffloadingModel
+
 from .configs import ModelConfig, MezoConfig, OffloadingConfig
-from .nanogpt_mezo import GPT2ModelMezo
+from .nanogpt import Block
 
 
-class GPT2ModelMezoOffloading(GPT2ModelMezo):
+class GPT2ModelMezoOffloading(nn.Module, BaseMezoOffloadingModel):
 
     def __init__(self, config: ModelConfig, mezoConfig: MezoConfig, offloadingConfig: OffloadingConfig):
-        self.offloading_args(offloadingConfig, config.n_layer)
-        super().__init__(config, mezoConfig)
+        super().__init__()
+        self.config = config
+        self.mezoConfig = mezoConfig
+        self.offloadingConfig = offloadingConfig
+        self.mezo_config()
+        self.offloading_config()
+        
+        self.transformer = nn.ModuleDict(dict(
+            wte = nn.Embedding(config.pad_size, config.n_embd),
+            wpe = nn.Embedding(config.block_size, config.n_embd),
+            h = nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
+            ln_f = nn.LayerNorm(config.n_embd),
+        ))
+        self.lm_head = nn.Linear(config.n_embd, config.pad_size, bias=False)
+
+        # weight sharing scheme
+        if config.share_emb:
+            self.transformer.wte.weight = self.lm_head.weight
+    
         self.offloading_init(offloadingConfig)
         self.offloading_error_handler()
     
@@ -24,8 +43,6 @@ class GPT2ModelMezoOffloading(GPT2ModelMezo):
         assert T <= self.config.block_size, f"Cannot forward sequence of length {T}, block size is only {self.config.block_size}"
         
         # Offloading added: pre load one block
-        self.offload_stream = torch.cuda.Stream()
-        self.upload_stream = torch.cuda.Stream()
         block = self.transformer.h[0]
         block = self.uploading(block, sync=False)
         
@@ -52,11 +69,11 @@ class GPT2ModelMezoOffloading(GPT2ModelMezo):
             
             # update block
             block = self.transformer.h[i]
-            if (i-1) % self.offloadingConfig.empty_cache_every_blocks==0:
+            if (i-1) % self.empty_cache_every_blocks==0:
                 torch.cuda.empty_cache()
         
         # Offloading added: sync final CPU uploading
-        if self.offloadingConfig.overlap and self.config.n_layer-1 in self.offload_layer_ids:
+        if self.overlap and self.config.n_layer-1 in self.offload_layer_ids:
             self.upload_stream.synchronize()
             self.mark_fully_uploaded(self.offload_layer_ids[self.uploaded_layer_idx_counter])
         
@@ -76,7 +93,7 @@ class GPT2ModelMezoOffloading(GPT2ModelMezo):
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
         
         # Offloading added: sync final CPU offloading
-        if self.offloadingConfig.overlap and self.config.n_layer-1 in self.offload_layer_ids:
+        if self.overlap and self.config.n_layer-1 in self.offload_layer_ids:
             self.offload_stream.synchronize()
         torch.cuda.empty_cache()
 
@@ -87,22 +104,16 @@ class GPT2ModelMezoOffloading(GPT2ModelMezo):
     
     ############## Uploading / Offloading ##############
 
-    def offloading_args(self, offloadingConfig: OffloadingConfig, n_layer):
-        self.offloadingConfig = offloadingConfig
-        if self.offloadingConfig.offload_every_blocks >= n_layer:
-            raise ValueError("The 'offloadingConfig.offload_every_blocks' must smaller than number of layers")
-        self.offloadingConfig.empty_cache_every_blocks = max(self.offloadingConfig.empty_cache_every_blocks, self.offloadingConfig.offload_every_blocks)
-        self.offload_layer_ids = list(range(0, n_layer, self.offloadingConfig.offload_every_blocks)) # which layers should be offloaded
-        if self.offload_layer_ids[0] != 0:
-            raise ValueError(f"Transformer block 0 must be offloaded to {self.offloadingConfig.offload_to_device}.")
-        self.upload_next_layer_start_ids = [i+1 for i in self.offload_layer_ids]    # which time you want next layer to be pre-uploaded
-        self.upload_next_layer_start_ids.pop(-1)
-        self.uploaded_layer_idx_counter = -1    # index of 'self.offload_layer_ids', showing which layers are already uploaded
-        self.if_layers_fully_uploaded = {
-            "init": [False if i in self.offload_layer_ids else True for i in range(n_layer)],
-            "runtime": [False if i in self.offload_layer_ids else True for i in range(n_layer)]
-        }
-        print(f"Transformer blocks {self.offload_layer_ids} will be offloaded to {self.offloadingConfig.offload_to_device}")
+    def offloading_config(self):
+        self.offload_to_device = self.offloadingConfig.offload_to_device
+        self.offload_from_device = self.offloadingConfig.offload_from_device
+        self.overlap = self.offloadingConfig.overlap
+        self.offload_every_blocks = self.offloadingConfig.offload_every_blocks
+        self.empty_cache_every_blocks = self.offloadingConfig.empty_cache_every_blocks
+        self.offload_use_amp = self.offloadingConfig.offload_use_amp
+        self.offload_amp_dtype = self.offloadingConfig.offload_amp_dtype
+        self.medium_precision_blocks_on_device = self.offloadingConfig.medium_precision_blocks_on_device
+        self.offloading_args(n_layer=self.config.n_layer)
 
     def offloading_init(self, offloadingConfig: OffloadingConfig):
         self.transformer.wte = self.transformer.wte.to(offloadingConfig.offload_from_device)
@@ -112,7 +123,7 @@ class GPT2ModelMezoOffloading(GPT2ModelMezo):
         for i in range(len(self.transformer.h)):
             if i not in self.offload_layer_ids:
                 self.transformer.h[i] = self.transformer.h[i].to(offloadingConfig.offload_from_device)
-                if offloadingConfig.offload_use_amp and self.offloadingConfig.medium_precision_blocks_on_device:
+                if offloadingConfig.offload_use_amp and self.medium_precision_blocks_on_device:
                     self.transformer.h[i] = self.transformer.h[i].to(offloadingConfig.offload_amp_dtype)
             else:
                 if offloadingConfig.offload_use_amp:
@@ -124,51 +135,15 @@ class GPT2ModelMezoOffloading(GPT2ModelMezo):
         if block_size / model_size < (1-alpha):
             raise ValueError(f"Transformer blocks' parameters should be greater than {(1-alpha)*100}%")
     
-    def mark_fully_uploaded(self, layer_id):
-        self.if_layers_fully_uploaded["runtime"][layer_id] = True
-
-    def check_fully_uploaded(self, layer_id):
-        if self.offloadingConfig.overlap:
-            if self.if_layers_fully_uploaded["runtime"][layer_id]:
-                return True
-            else:
-                raise ValueError(f"Transformer block {layer_id} is not fully uploaded from {self.offloadingConfig.offload_to_device}")
-        return True
-
-    def uploading(self, module: nn.Module, sync: bool=True):
-        if self.offloadingConfig.overlap:
-            if sync:
-                self.upload_stream.synchronize()
-            self.uploaded_layer_idx_counter += 1
-            self.mark_fully_uploaded(self.offload_layer_ids[self.uploaded_layer_idx_counter])
-            with torch.cuda.stream(self.upload_stream):
-                module = module.to(self.offloadingConfig.offload_from_device, non_blocking=True)
-        else:
-            module = module.to(self.offloadingConfig.offload_from_device)
-            self.uploaded_layer_idx_counter += 1
-        return module
-
-    def offloading(self, module: nn.Module):
-        if self.offloadingConfig.overlap:
-            self.offload_stream.synchronize()
-            with torch.cuda.stream(self.offload_stream):
-                module = module.to(self.offloadingConfig.offload_to_device, non_blocking=True)
-        else:
-            module = module.to(self.offloadingConfig.offload_to_device)
-        return module
-    
-    def reset_offloading(self):
-        self.if_layers_fully_uploaded["runtime"] = self.if_layers_fully_uploaded["init"]
-        self.uploaded_layer_idx_counter = -1
-
-    @torch.inference_mode
-    def zo_dual_forward(self, module:nn.Module, dual_inputs, amp_cast=False):
-        output = super().zo_dual_forward(module, dual_inputs)
-        if self.offloadingConfig.offload_use_amp and amp_cast:
-            module = module.to(self.offloadingConfig.offload_amp_dtype)
-        return output
-
     ############## MeZO ##############
+
+    def mezo_config(self):
+        self.max_zo_random_seed = self.mezoConfig.max_zo_random_seed
+        self.zo_eps = self.mezoConfig.zo_eps
+        self.non_diff = self.mezoConfig.non_diff
+        self.zo_lr = self.mezoConfig.zo_lr
+        self.zo_weight_decay = self.mezoConfig.zo_weight_decay
+        self.mezo_args()
 
     @torch.inference_mode
     def zo_forward(self, idx, targets=None):
@@ -179,8 +154,6 @@ class GPT2ModelMezoOffloading(GPT2ModelMezo):
         assert T <= self.config.block_size, f"Cannot forward sequence of length {T}, block size is only {self.config.block_size}"
         
         # Offloading added: pre load one block
-        self.offload_stream = torch.cuda.Stream()
-        self.upload_stream = torch.cuda.Stream()
         block = self.transformer.h[0]
         block = self.uploading(block, sync=False)
         
@@ -207,11 +180,11 @@ class GPT2ModelMezoOffloading(GPT2ModelMezo):
             
             # update block
             block = self.transformer.h[i]
-            if i%self.offloadingConfig.empty_cache_every_blocks==0:
+            if i%self.empty_cache_every_blocks==0:
                 torch.cuda.empty_cache()
 
         # Offloading added: sync final CPU uploading
-        if self.offloadingConfig.overlap and self.config.n_layer-1 in self.offload_layer_ids:
+        if self.overlap and self.config.n_layer-1 in self.offload_layer_ids:
             self.upload_stream.synchronize()
             self.mark_fully_uploaded(self.offload_layer_ids[self.uploaded_layer_idx_counter])
         
@@ -233,7 +206,7 @@ class GPT2ModelMezoOffloading(GPT2ModelMezo):
             self.zo_final_step(loss1, loss2)
         
         # Offloading added: sync final CPU offloading
-        if self.offloadingConfig.overlap and self.config.n_layer-1 in self.offload_layer_ids:
+        if self.overlap and self.config.n_layer-1 in self.offload_layer_ids:
             self.offload_stream.synchronize()
         torch.cuda.empty_cache()
 
