@@ -1,5 +1,6 @@
 
 import os
+import gc
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -67,11 +68,11 @@ class BaseMezoOffloadingModel(BaseMezoModel):
             self.uploaded_layer_idx_counter += 1
             self.mark_fully_uploaded(self.offload_layer_ids[self.uploaded_layer_idx_counter])
             with torch.cuda.stream(self.upload_stream):
-                module = module.to(self.offload_from_device, non_blocking=True)
+                module_upload = module.to(self.offload_from_device, non_blocking=True)
         else:
-            module = module.to(self.offload_from_device)
+            module_upload = module.to(self.offload_from_device)
             self.uploaded_layer_idx_counter += 1
-        return module
+        return module_upload
 
     def offloading(self, module: nn.Module):
         if self.overlap:
@@ -80,7 +81,7 @@ class BaseMezoOffloadingModel(BaseMezoModel):
                 module = module.to(self.offload_to_device, non_blocking=True)
         else:
             module = module.to(self.offload_to_device)
-        return module
+        return None
     
     def reset_offloading(self):
         self.if_layers_fully_uploaded["runtime"] = self.if_layers_fully_uploaded["init"]

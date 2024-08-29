@@ -65,7 +65,7 @@ class GPT2ModelMezoOffloading(nn.Module, BaseMezoOffloadingModel):
 
             # Offloading added: CPU offloading
             if (i-1) in self.offload_layer_ids:
-                block = self.offloading(block)
+                self.offloading(block)
             
             # update block
             block = self.transformer.h[i]
@@ -176,7 +176,7 @@ class GPT2ModelMezoOffloading(nn.Module, BaseMezoOffloadingModel):
 
             # Offloading added: CPU offloading
             if (i-1) in self.offload_layer_ids:
-                block = self.offloading(block)
+                self.offloading(block)
             
             # update block
             block = self.transformer.h[i]
