@@ -34,12 +34,12 @@ class BaseMezoModel:
         if (self.projected_grad != 0 and not self.grad_accum) and update:
             self._zo_update(module)
             self._zo_zero_grad()
-        cloned_module = self._zo_module_clone(module)
-        self._zo_perturb_parameters(cloned_module, scaling_factor=1)
-        out1 = cloned_module(input1)
-        self._zo_perturb_parameters(cloned_module, scaling_factor=-2)
-        out2 = cloned_module(input2)
-        del cloned_module
+        self._zo_perturb_parameters(module, scaling_factor=1)
+        out1 = module(input1)
+        self._zo_perturb_parameters(module, scaling_factor=-2)
+        out2 = module(input2)
+        # Reset model back to its parameters at start of step (1-2+1=0)
+        self._zo_perturb_parameters(module, scaling_factor=1)
         return out1, out2
     
     @torch.inference_mode

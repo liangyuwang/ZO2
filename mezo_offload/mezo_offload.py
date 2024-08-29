@@ -25,7 +25,7 @@ class BaseMezoOffloadingModel(BaseMezoModel):
         self.offload_use_amp: bool = True
         self.offload_amp_dtype: torch.dtype = torch.bfloat16
         self.medium_precision_blocks_on_device: bool = True
-        self.offloading_args(n_layer=1)
+        self.offloading_args(n_layer=...)
 
     def offloading_args(self, n_layer):
         if self.offload_every_blocks >= n_layer:
