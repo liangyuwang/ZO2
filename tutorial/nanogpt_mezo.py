@@ -16,7 +16,7 @@ class GPT2ModelMezo(nn.Module, BaseMezoModel):
         super().__init__()
         self.config = config
         self.mezoConfig = mezoConfig
-        self.mezo_config()
+        self.set_mezo_config()
 
         self.transformer = nn.ModuleDict(dict(
             wte = nn.Embedding(config.pad_size, config.n_embd),
@@ -55,17 +55,16 @@ class GPT2ModelMezo(nn.Module, BaseMezoModel):
     ############## MeZO ##############
     # inspired by https://github.com/princeton-nlp/MeZO/blob/main/large_models/trainer.py
 
-    def mezo_config(self):
+    def set_mezo_config(self):
         self.max_zo_random_seed = self.mezoConfig.max_zo_random_seed
         self.zo_eps = self.mezoConfig.zo_eps
         self.non_diff = self.mezoConfig.non_diff
         self.zo_lr = self.mezoConfig.zo_lr
         self.zo_weight_decay = self.mezoConfig.zo_weight_decay
-        self.mezo_args()
+        self.set_mezo_args()
 
     @torch.inference_mode
     def zo_forward(self, idx, targets=None):
-        self.set_random_seed()
         # idx is of shape (B, T)
         B, T = idx.size()
         assert T <= self.config.block_size, f"Cannot forward sequence of length {T}, block size is only {self.config.block_size}"

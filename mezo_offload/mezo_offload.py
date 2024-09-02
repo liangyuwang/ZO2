@@ -1,6 +1,7 @@
 
 import os
 import gc
+from copy import deepcopy
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -11,13 +12,13 @@ from .mezo import BaseMezoModel
 class BaseMezoOffloadingModel(BaseMezoModel):
 
     def __init__(self):
-        self.mezo_config()
-        self.offloading_config()
-        self.offloading_init()
+        self.set_mezo_config()
+        self.set_offloading_config()
+        self.offloading_reinit()
     
     ############## Uploading / Offloading ##############
 
-    def offloading_config(self):
+    def set_offloading_config(self):
         self.offload_to_device: torch.device = "cpu"
         self.offload_from_device: torch.device = "cuda:0"
         self.overlap: bool = True    # if you want to make communication-computation overlap, 'True' will be faster.
@@ -26,9 +27,9 @@ class BaseMezoOffloadingModel(BaseMezoModel):
         self.offload_use_amp: bool = True
         self.offload_amp_dtype: torch.dtype = torch.bfloat16
         self.medium_precision_blocks_on_device: bool = True
-        self.offloading_args(n_layer=...)
+        self.set_offloading_args(n_layer=...)
 
-    def offloading_args(self, n_layer):
+    def set_offloading_args(self, n_layer):
         if self.offload_every_blocks >= n_layer:
             raise ValueError("The 'offload_every_blocks' must smaller than number of layers")
         self.empty_cache_every_blocks = max(self.empty_cache_every_blocks, self.offload_every_blocks)
@@ -46,7 +47,7 @@ class BaseMezoOffloadingModel(BaseMezoModel):
         self.offload_stream = torch.cuda.Stream()
         self.upload_stream = torch.cuda.Stream()
 
-    def offloading_init(self):
+    def offloading_reinit(self):
         # init modules in the Model
         ...
 
@@ -68,11 +69,11 @@ class BaseMezoOffloadingModel(BaseMezoModel):
             self.uploaded_layer_idx_counter += 1
             self.mark_fully_uploaded(self.offload_layer_ids[self.uploaded_layer_idx_counter])
             with torch.cuda.stream(self.upload_stream):
-                module_upload = module.to(self.offload_from_device, non_blocking=True)
+                module = module.to(self.offload_from_device, non_blocking=True)
         else:
-            module_upload = module.to(self.offload_from_device)
+            module = module.to(self.offload_from_device)
             self.uploaded_layer_idx_counter += 1
-        return module_upload
+        return module
 
     def offloading(self, module: nn.Module):
         if self.overlap:
@@ -81,16 +82,29 @@ class BaseMezoOffloadingModel(BaseMezoModel):
                 module = module.to(self.offload_to_device, non_blocking=True)
         else:
             module = module.to(self.offload_to_device)
-        return None
+        return module
     
     def reset_offloading(self):
         self.if_layers_fully_uploaded["runtime"] = self.if_layers_fully_uploaded["init"]
         self.uploaded_layer_idx_counter = -1
 
     @torch.inference_mode
-    def zo_dual_forward(self, module:nn.Module, dual_inputs, amp_cast=False):
-        output = super().zo_dual_forward(module, dual_inputs)
+    def zo_dual_forward(self, module:nn.Module, dual_inputs, update=True, amp_cast=False):
+        input1, input2 = dual_inputs
+        if (self.projected_grad != 0 and not self.grad_accum) and update:
+            self._zo_update(module)
+            self._zo_zero_grad()
+        cloned_module = self._module_clone(module)
+        self._zo_perturb_parameters(cloned_module, scaling_factor=1)
+        out1 = cloned_module(input1)
+        self._zo_perturb_parameters(cloned_module, scaling_factor=-2)
+        out2 = cloned_module(input2)
+        del cloned_module
         if self.offload_use_amp and amp_cast:
             module = module.to(self.offload_amp_dtype)
-        return output
-
+        return out1, out2
+    
+    @torch.inference_mode
+    def _module_clone(self, module:nn.Module):
+        cloned_module = deepcopy(module)
+        return cloned_module

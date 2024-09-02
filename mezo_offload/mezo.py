@@ -1,7 +1,6 @@
 
 import os
 import numpy as np
-from copy import deepcopy
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -10,23 +9,24 @@ from torch.nn import functional as F
 class BaseMezoModel:
 
     def __init__(self):
-        self.mezo_config()
+        self.set_mezo_config()
     
     ############## MeZO ##############
     # inspired by https://github.com/princeton-nlp/MeZO/blob/main/large_models/trainer.py
 
-    def mezo_config(self):
+    def set_mezo_config(self):
         self.max_zo_random_seed = 1000000000
         self.zo_eps = 1e-3
         self.non_diff = False
         self.zo_lr = 1e-7
         self.zo_weight_decay = 1e-1
-        self.mezo_args()
+        self.set_mezo_args()
     
-    def mezo_args(self):
+    def set_mezo_args(self):
         self.zo_training = True
         self.projected_grad = 0
         self.grad_accum = False
+        self.set_random_seed()
 
     @torch.inference_mode
     def zo_dual_forward(self, module:nn.Module, dual_inputs, update=True):
@@ -60,11 +60,6 @@ class BaseMezoModel:
             if param.requires_grad:
                 z = torch.normal(mean=0, std=1, size=param.data.size(), device=param.data.device, dtype=param.data.dtype)
                 param.data = param.data + scaling_factor * z * self.zo_eps
-
-    @torch.inference_mode
-    def _zo_module_clone(self, module:nn.Module):
-        cloned_module = deepcopy(module)
-        return cloned_module
 
     @torch.inference_mode
     def _zo_update(self, module:nn.Module):

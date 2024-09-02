@@ -55,11 +55,11 @@ def model_size(model: torch.nn.Module):
 def eval_acc():
     seed_everything(trainConfig.seed)
     mezoConfig.max_zo_random_seed = 1
-    model_ref = GPT2ModelMezo(modelConfig, mezoConfig)
+    model_ref = GPT2ModelMezo(modelConfig, mezoConfig).to(modelConfig.dtype)
     total_parameters = model_size(model_ref)["total"]
     print(f"normal model size: {total_parameters/1024**3:.2f} B")
     offloadingConfig.offload_use_amp = False
-    model = GPT2ModelMezoOffloading(modelConfig, mezoConfig, offloadingConfig)
+    model = GPT2ModelMezoOffloading(modelConfig, mezoConfig, offloadingConfig).to(modelConfig.dtype)
     total_parameters = model_size(model)["total"]
     print(f"Offloading model size: {total_parameters/1024**3:.2f} B")
     for name_ref, p_ref in model_ref.named_parameters():
@@ -116,7 +116,7 @@ def eval_acc():
 
 def mezo_performance():
     seed_everything(trainConfig.seed)
-    model_ref = GPT2ModelMezo(modelConfig, mezoConfig)
+    model_ref = GPT2ModelMezo(modelConfig, mezoConfig).to(modelConfig.dtype)
     total_parameters = model_size(model_ref)["total"]
     print(f"normal model size: {total_parameters/1024**3:.2f} B")
     model_ref = model_ref.to(modelConfig.device)
@@ -128,17 +128,12 @@ def mezo_performance():
     input = {"idx": x, "targets": y}
     torch.cuda.reset_peak_memory_stats()
     for i in tqdm(range(trainConfig.max_steps)):
-        if offloadingConfig.offload_use_amp:
-            with torch.autocast("cuda", offloadingConfig.offload_amp_dtype):
-                check_time_cost(i, model_ref, **input)
-                check_peak_memory_usage(i, modelConfig.device, True)
-        else:
-            check_time_cost(i, model_ref, **input)
-            check_peak_memory_usage(i, modelConfig.device, True)
+        check_time_cost(i, model_ref, **input)
+        check_peak_memory_usage(i, modelConfig.device, True)
 
 def mezo_offloading_performance(overlap=True):
     seed_everything(trainConfig.seed)
-    model = GPT2ModelMezoOffloading(modelConfig, mezoConfig, offloadingConfig)
+    model = GPT2ModelMezoOffloading(modelConfig, mezoConfig, offloadingConfig).to(modelConfig.dtype)
     model.overlap = overlap
     total_parameters = model_size(model)["total"]
     print(f"Offloading model size: {total_parameters/1024**3:.2f} B")
@@ -160,7 +155,7 @@ def mezo_offloading_performance(overlap=True):
 
 def train_torch():
     seed_everything(trainConfig.seed)
-    model_ref = GPT2ModelMezo(modelConfig, mezoConfig)
+    model_ref = GPT2ModelMezo(modelConfig, mezoConfig).to(modelConfig.dtype)
     total_parameters = model_size(model_ref)["total"]
     print(f"normal model size: {total_parameters/1024**3:.2f} B")
     model_ref = model_ref.to(modelConfig.device)
@@ -186,7 +181,7 @@ def train_torch():
 
 def train_mezo():
     seed_everything(trainConfig.seed)
-    model_ref = GPT2ModelMezo(modelConfig, mezoConfig)
+    model_ref = GPT2ModelMezo(modelConfig, mezoConfig).to(modelConfig.dtype)
     total_parameters = model_size(model_ref)["total"]
     print(f"normal model size: {total_parameters/1024**3:.2f} B")
     model_ref = model_ref.to(modelConfig.device)
@@ -200,16 +195,12 @@ def train_mezo():
         # train
         model_ref.zo_training = True
         model_ref.grad_accum = False
-        if offloadingConfig.offload_use_amp:
-            with torch.autocast("cuda", offloadingConfig.offload_amp_dtype):
-                (_, _), (loss, _) = model_ref(**input)
-        else:
-            (_, _), (loss, _) = model_ref(**input)
+        (_, _), (loss, _) = model_ref(**input)
         tqdm.write("Iteration {}, loss: {}, projected grad: {}".format(i, loss, model_ref.projected_grad.abs()))
 
 def train_mezo_offloading():
     seed_everything(trainConfig.seed)
-    model = GPT2ModelMezoOffloading(modelConfig, mezoConfig, offloadingConfig)
+    model = GPT2ModelMezoOffloading(modelConfig, mezoConfig, offloadingConfig).to(modelConfig.dtype)
     total_parameters = model_size(model)["total"]
     print(f"normal model size: {total_parameters/1024**3:.2f} B")
     print("Init dataset")
@@ -231,7 +222,7 @@ def train_mezo_offloading():
 
 def eval_mezo():
     seed_everything(trainConfig.seed)
-    model_ref = GPT2ModelMezo(modelConfig, mezoConfig)
+    model_ref = GPT2ModelMezo(modelConfig, mezoConfig).to(modelConfig.dtype)
     total_parameters = model_size(model_ref)["total"]
     print(f"normal model size: {total_parameters/1024**3:.2f} B")
     model_ref = model_ref.to(modelConfig.device)
@@ -249,7 +240,7 @@ def eval_mezo():
 
 def eval_mezo_offloading():
     seed_everything(trainConfig.seed)
-    model = GPT2ModelMezoOffloading(modelConfig, mezoConfig, offloadingConfig)
+    model = GPT2ModelMezoOffloading(modelConfig, mezoConfig, offloadingConfig).to(modelConfig.dtype)
     total_parameters = model_size(model)["total"]
     print(f"normal model size: {total_parameters/1024**3:.2f} B")
     print("Init dataset")
@@ -265,14 +256,14 @@ def eval_mezo_offloading():
         print(f"loss: {loss}")
 
 if __name__=="__main__":
-    modelConfig = OPT_125m()
+    modelConfig = OPT_13b()
     trainConfig = TrainConfig()
     mezoConfig = MezoConfig()
     offloadingConfig = OffloadingConfig()
 
-    # eval_acc()
+    eval_acc()
     # mezo_performance()
-    mezo_offloading_performance(overlap=True)
+    # mezo_offloading_performance(overlap=True)
 
     # train_torch()
     # train_mezo()

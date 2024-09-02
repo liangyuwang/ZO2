@@ -16,8 +16,8 @@ class GPT2ModelMezoOffloading(nn.Module, BaseMezoOffloadingModel):
         self.config = config
         self.mezoConfig = mezoConfig
         self.offloadingConfig = offloadingConfig
-        self.mezo_config()
-        self.offloading_config()
+        self.set_mezo_config()
+        self.set_offloading_config()
         
         self.transformer = nn.ModuleDict(dict(
             wte = nn.Embedding(config.pad_size, config.n_embd),
@@ -31,7 +31,7 @@ class GPT2ModelMezoOffloading(nn.Module, BaseMezoOffloadingModel):
         if config.share_emb:
             self.transformer.wte.weight = self.lm_head.weight
     
-        self.offloading_init(offloadingConfig)
+        self.offloading_reinit()
         self.offloading_error_handler()
     
     def forward(self, idx, targets=None):
@@ -65,7 +65,7 @@ class GPT2ModelMezoOffloading(nn.Module, BaseMezoOffloadingModel):
 
             # Offloading added: CPU offloading
             if (i-1) in self.offload_layer_ids:
-                self.offloading(block)
+                block = self.offloading(block)
             
             # update block
             block = self.transformer.h[i]
@@ -104,7 +104,7 @@ class GPT2ModelMezoOffloading(nn.Module, BaseMezoOffloadingModel):
     
     ############## Uploading / Offloading ##############
 
-    def offloading_config(self):
+    def set_offloading_config(self):
         self.offload_to_device = self.offloadingConfig.offload_to_device
         self.offload_from_device = self.offloadingConfig.offload_from_device
         self.overlap = self.offloadingConfig.overlap
@@ -113,41 +113,40 @@ class GPT2ModelMezoOffloading(nn.Module, BaseMezoOffloadingModel):
         self.offload_use_amp = self.offloadingConfig.offload_use_amp
         self.offload_amp_dtype = self.offloadingConfig.offload_amp_dtype
         self.medium_precision_blocks_on_device = self.offloadingConfig.medium_precision_blocks_on_device
-        self.offloading_args(n_layer=self.config.n_layer)
+        self.set_offloading_args(n_layer=self.config.n_layer)
 
-    def offloading_init(self, offloadingConfig: OffloadingConfig):
-        self.transformer.wte = self.transformer.wte.to(offloadingConfig.offload_from_device)
-        self.transformer.wpe = self.transformer.wpe.to(offloadingConfig.offload_from_device)
-        self.transformer.ln_f = self.transformer.ln_f.to(offloadingConfig.offload_from_device)
-        self.lm_head = self.lm_head.to(offloadingConfig.offload_from_device)
+    def offloading_reinit(self):
+        self.transformer.wte = self.transformer.wte.to(self.offloadingConfig.offload_from_device)
+        self.transformer.wpe = self.transformer.wpe.to(self.offloadingConfig.offload_from_device)
+        self.transformer.ln_f = self.transformer.ln_f.to(self.offloadingConfig.offload_from_device)
+        self.lm_head = self.lm_head.to(self.offloadingConfig.offload_from_device)
         for i in range(len(self.transformer.h)):
             if i not in self.offload_layer_ids:
-                self.transformer.h[i] = self.transformer.h[i].to(offloadingConfig.offload_from_device)
-                if offloadingConfig.offload_use_amp and self.medium_precision_blocks_on_device:
-                    self.transformer.h[i] = self.transformer.h[i].to(offloadingConfig.offload_amp_dtype)
+                self.transformer.h[i] = self.transformer.h[i].to(self.offloadingConfig.offload_from_device)
+                if self.offloadingConfig.offload_use_amp and self.medium_precision_blocks_on_device:
+                    self.transformer.h[i] = self.transformer.h[i].to(self.offloadingConfig.offload_amp_dtype)
             else:
-                if offloadingConfig.offload_use_amp:
-                    self.transformer.h[i] = self.transformer.h[i].to(offloadingConfig.offload_amp_dtype)
+                if self.offloadingConfig.offload_use_amp:
+                    self.transformer.h[i] = self.transformer.h[i].to(self.offloadingConfig.offload_amp_dtype)
 
     def offloading_error_handler(self, alpha=0.5):
         block_size = sum(p.numel() for p in self.transformer.h.parameters())
         model_size = sum(p.numel() for p in self.parameters())
         if block_size / model_size < (1-alpha):
-            raise ValueError(f"Transformer blocks' parameters should be greater than {(1-alpha)*100}%")
+            raise ValueError(f"In MeZO-Offloading, transformer blocks' parameters should be greater than {(1-alpha)*100}%")
     
     ############## MeZO ##############
 
-    def mezo_config(self):
+    def set_mezo_config(self):
         self.max_zo_random_seed = self.mezoConfig.max_zo_random_seed
         self.zo_eps = self.mezoConfig.zo_eps
         self.non_diff = self.mezoConfig.non_diff
         self.zo_lr = self.mezoConfig.zo_lr
         self.zo_weight_decay = self.mezoConfig.zo_weight_decay
-        self.mezo_args()
+        self.set_mezo_args()
 
     @torch.inference_mode
     def zo_forward(self, idx, targets=None):
-        self.set_random_seed()
         # idx is of shape (B, T)
         B, T = idx.size()
         device = idx.device
@@ -194,7 +193,7 @@ class GPT2ModelMezoOffloading(nn.Module, BaseMezoOffloadingModel):
 
         # Offloading added: final CPU offloading
         if (self.config.n_layer-1) in self.offload_layer_ids:
-            block = self.offloading(block)
+            self.offloading(block)
 
         # forward the final layernorm and the classifier
         x1, x2 = self.zo_dual_forward(self.transformer.ln_f, (x1, x2))
