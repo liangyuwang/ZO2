@@ -100,7 +100,6 @@ class BaseMezoOffloadingModel(BaseMezoModel):
         out1 = cloned_module(input1)
         self._zo_perturb_parameters(cloned_module, scaling_factor=-2)
         out2 = cloned_module(input2)
-        del cloned_module
         if self.offload_use_amp and amp_cast:
             module = module.to(self.offload_amp_dtype)
         return out1, out2
