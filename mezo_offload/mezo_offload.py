@@ -65,6 +65,7 @@ class BaseMezoOffloadingModel(BaseMezoModel):
     def uploading(self, module: nn.Module, sync: bool=True):
         if self.overlap:
             if sync:
+                self.offload_stream.synchronize()
                 self.upload_stream.synchronize()
             self.uploaded_layer_idx_counter += 1
             self.mark_fully_uploaded(self.offload_layer_ids[self.uploaded_layer_idx_counter])
