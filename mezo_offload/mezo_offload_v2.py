@@ -71,8 +71,9 @@ class BaseMezoOffloadingModel(BaseMezoModel):
             with torch.cuda.stream(self.upload_stream):
                 module = module.to(self.offload_from_device, non_blocking=True)
         else:
+            if sync:
+                self.uploaded_layer_idx_counter += 1
             module = module.to(self.offload_from_device)
-            self.uploaded_layer_idx_counter += 1
         return module
 
     def offloading(self, module: nn.Module):
