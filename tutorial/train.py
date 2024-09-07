@@ -11,8 +11,9 @@ from torch.nn import functional as F
 from tutorial.configs import *
 from tutorial import (
     GPT2ModelMezo,
-    GPT2ModelMezoOffloading
+    # GPT2ModelMezoOffloading
 )
+from tutorial.nanogpt_mezo_offloading_v2 import GPT2ModelMezoOffloading
 
 
 def seed_everything(seed: int):
@@ -54,7 +55,9 @@ def model_size(model: torch.nn.Module):
 
 def eval_acc():
     seed_everything(trainConfig.seed)
+    modelConfig.dtype = torch.float64
     mezoConfig.max_zo_random_seed = 1
+    mezoConfig.zo_lr = 1e-3
     model_ref = GPT2ModelMezo(modelConfig, mezoConfig).to(modelConfig.dtype)
     total_parameters = model_size(model_ref)["total"]
     print(f"normal model size: {total_parameters/1024**3:.2f} B")
@@ -79,7 +82,7 @@ def eval_acc():
     for i in range(trainConfig.max_steps):
         model_ref.zo_training = True
         model.zo_training = True
-        print(f"projected grad: {model_ref.projected_grad}, {model.projected_grad}")
+        print(f"projected grad: {model_ref.projected_grad}, {model.projected_grad}, diff: {model_ref.projected_grad-model.projected_grad}")
         if offloadingConfig.offload_use_amp:
             with torch.autocast("cuda", offloadingConfig.offload_amp_dtype):
                 out_ref = model_ref(**input)
@@ -89,6 +92,7 @@ def eval_acc():
             out = model(**input)
         (output1_ref, output2_ref), (loss1_ref, loss2_ref) = out_ref[:2]
         (output1, output2), (loss1, loss2) = out[:2]
+        print(f"loss1: {loss1_ref.item()}, {loss1.item()}, diff: {loss1_ref.item()-loss1.item()}")
 
     # eval
     model_ref.zo_training = False
@@ -165,7 +169,8 @@ def train_torch():
     x = data[:, 0:T].clone()
     y = data[:, 1:T+1].clone()
     input = {"idx": x, "targets": y}
-    opt = torch.optim.AdamW(model_ref.parameters())
+    # opt = torch.optim.AdamW(model_ref.parameters())
+    opt = torch.optim.SGD(model_ref.parameters(), momentum=0)
     for i in tqdm(range(trainConfig.max_steps)):
         # train
         model_ref.zo_training = False
@@ -256,7 +261,7 @@ def eval_mezo_offloading():
         print(f"loss: {loss}")
 
 if __name__=="__main__":
-    modelConfig = OPT_13b()
+    modelConfig = OPT_125m()
     trainConfig = TrainConfig()
     mezoConfig = MezoConfig()
     offloadingConfig = OffloadingConfig()

@@ -78,7 +78,7 @@ class GPT2ModelMezo(nn.Module, BaseMezoModel):
             x1, x2 = self.zo_dual_forward(block, (x1, x2))
         # forward the final layernorm and the classifier
         x1, x2 = self.zo_dual_forward(self.transformer.ln_f, (x1, x2))
-        logits1, logits2 = self.zo_dual_forward(self.lm_head, (x1, x2))
+        logits1, logits2 = self.zo_dual_forward(self.lm_head, (x1, x2), zero_grad=True)
         loss1 = loss2 = None
         if targets is not None:
             loss1 = F.cross_entropy(logits1.view(-1, logits1.size(-1)), targets.view(-1))

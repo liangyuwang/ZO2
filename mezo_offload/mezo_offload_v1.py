@@ -38,7 +38,7 @@ class BaseMezoOffloadingModel(BaseMezoModel):
             raise ValueError(f"Transformer block 0 must be offloaded to {self.offload_to_device}.")
         self.upload_next_layer_start_ids = [i+1 for i in self.offload_layer_ids]    # which time you want next layer to be pre-uploaded
         self.upload_next_layer_start_ids.pop(-1)
-        self.uploaded_layer_idx_counter = -1    # index of 'self.offload_layer_ids', showing which layers are already uploaded
+        self.uploaded_layer_idx_counter = 0    # index of 'self.offload_layer_ids', showing which layers are already uploaded
         self.if_layers_fully_uploaded = {
             "init": [False if i in self.offload_layer_ids else True for i in range(n_layer)],
             "runtime": [False if i in self.offload_layer_ids else True for i in range(n_layer)]
@@ -65,9 +65,8 @@ class BaseMezoOffloadingModel(BaseMezoModel):
     def uploading(self, module: nn.Module, sync: bool=True):
         if self.overlap:
             if sync:
-                self.offload_stream.synchronize()
                 self.upload_stream.synchronize()
-            self.uploaded_layer_idx_counter += 1
+                self.uploaded_layer_idx_counter += 1
             self.mark_fully_uploaded(self.offload_layer_ids[self.uploaded_layer_idx_counter])
             with torch.cuda.stream(self.upload_stream):
                 module = module.to(self.offload_from_device, non_blocking=True)
@@ -87,14 +86,15 @@ class BaseMezoOffloadingModel(BaseMezoModel):
     
     def reset_offloading(self):
         self.if_layers_fully_uploaded["runtime"] = self.if_layers_fully_uploaded["init"]
-        self.uploaded_layer_idx_counter = -1
+        self.uploaded_layer_idx_counter = 0
 
     @torch.inference_mode
-    def zo_dual_forward(self, module:nn.Module, dual_inputs, update=True, amp_cast=False):
+    def zo_dual_forward(self, module:nn.Module, dual_inputs, update=True, zero_grad=False, amp_cast=False):
         input1, input2 = dual_inputs
         if (self.projected_grad != 0 and not self.grad_accum) and update:
             self._zo_update(module)
-            self._zo_zero_grad()
+            if zero_grad:
+                self._zo_zero_grad()
         cloned_module = self._module_clone(module)
         self._zo_perturb_parameters(cloned_module, scaling_factor=1)
         out1 = cloned_module(input1)

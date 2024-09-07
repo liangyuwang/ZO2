@@ -29,11 +29,12 @@ class BaseMezoModel:
         self.set_random_seed()
 
     @torch.inference_mode
-    def zo_dual_forward(self, module:nn.Module, dual_inputs, update=True):
+    def zo_dual_forward(self, module:nn.Module, dual_inputs, update=True, zero_grad=False):
         input1, input2 = dual_inputs
         if (self.projected_grad != 0 and not self.grad_accum) and update:
             self._zo_update(module)
-            self._zo_zero_grad()
+            if zero_grad:
+                self._zo_zero_grad()
         self._zo_perturb_parameters(module, scaling_factor=1)
         out1 = module(input1)
         self._zo_perturb_parameters(module, scaling_factor=-2)
