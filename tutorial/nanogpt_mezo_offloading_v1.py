@@ -116,18 +116,18 @@ class GPT2ModelMezoOffloading(nn.Module, BaseMezoOffloadingModel):
         self.set_offloading_args(n_layer=self.config.n_layer)
 
     def offloading_reinit(self):
-        self.transformer.wte = self.transformer.wte.to(self.offloadingConfig.offload_from_device)
-        self.transformer.wpe = self.transformer.wpe.to(self.offloadingConfig.offload_from_device)
-        self.transformer.ln_f = self.transformer.ln_f.to(self.offloadingConfig.offload_from_device)
-        self.lm_head = self.lm_head.to(self.offloadingConfig.offload_from_device)
+        self.transformer.wte = self.transformer.wte.to(self.offload_from_device)
+        self.transformer.wpe = self.transformer.wpe.to(self.offload_from_device)
+        self.transformer.ln_f = self.transformer.ln_f.to(self.offload_from_device)
+        self.lm_head = self.lm_head.to(self.offload_from_device)
         for i in range(len(self.transformer.h)):
             if i not in self.offload_layer_ids:
-                self.transformer.h[i] = self.transformer.h[i].to(self.offloadingConfig.offload_from_device)
-                if self.offloadingConfig.offload_use_amp and self.medium_precision_blocks_on_device:
-                    self.transformer.h[i] = self.transformer.h[i].to(self.offloadingConfig.offload_amp_dtype)
+                self.transformer.h[i] = self.transformer.h[i].to(self.offload_from_device)
+                if self.offload_use_amp and self.medium_precision_blocks_on_device:
+                    self.transformer.h[i] = self.transformer.h[i].to(self.offload_amp_dtype)
             else:
-                if self.offloadingConfig.offload_use_amp:
-                    self.transformer.h[i] = self.transformer.h[i].to(self.offloadingConfig.offload_amp_dtype)
+                if self.offload_use_amp:
+                    self.transformer.h[i] = self.transformer.h[i].to(self.offload_amp_dtype)
 
     def offloading_error_handler(self, alpha=0.5):
         block_size = sum(p.numel() for p in self.transformer.h.parameters())
