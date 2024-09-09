@@ -69,8 +69,6 @@ class GPT2ModelMezoOffloading(nn.Module, BaseMezoOffloadingModel):
             
             # update block
             block = self.transformer.h[i]
-            if (i-1) % self.empty_cache_every_blocks==0:
-                torch.cuda.empty_cache()
         
         # Offloading added: sync final CPU uploading
         if self.overlap and self.config.n_layer-1 in self.offload_layer_ids:
@@ -95,7 +93,6 @@ class GPT2ModelMezoOffloading(nn.Module, BaseMezoOffloadingModel):
         # Offloading added: sync final CPU offloading
         if self.overlap and self.config.n_layer-1 in self.offload_layer_ids:
             self.offload_stream.synchronize()
-        torch.cuda.empty_cache()
 
         # reset offloading state
         self.reset_offloading()
@@ -179,8 +176,6 @@ class GPT2ModelMezoOffloading(nn.Module, BaseMezoOffloadingModel):
             
             # update block
             block = self.transformer.h[i]
-            # if i%self.empty_cache_every_blocks==0:
-            #     torch.cuda.empty_cache()
 
         # Offloading added: sync final CPU uploading
         if self.overlap and self.config.n_layer-1 in self.offload_layer_ids:
@@ -207,7 +202,6 @@ class GPT2ModelMezoOffloading(nn.Module, BaseMezoOffloadingModel):
         # Offloading added: sync final CPU offloading
         if self.overlap and self.config.n_layer-1 in self.offload_layer_ids:
             self.offload_stream.synchronize()
-        # torch.cuda.empty_cache()
 
         # reset offloading state
         self.reset_offloading()

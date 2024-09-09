@@ -123,8 +123,6 @@ class GPT2ModelMezoOffloading(nn.Module, BaseMezoOffloadingModel):
         for i in range(len(self.transformer.h)):
             if i not in self.offload_layer_ids:
                 self.transformer.h[i] = self.transformer.h[i].to(self.offload_from_device)
-                if self.offload_use_amp and self.medium_precision_blocks_on_device:
-                    self.transformer.h[i] = self.transformer.h[i].to(self.offload_amp_dtype)
             else:
                 if self.offload_use_amp:
                     self.transformer.h[i] = self.transformer.h[i].to(self.offload_amp_dtype)
