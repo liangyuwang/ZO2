@@ -57,8 +57,9 @@ class OffloadingConfig:
     overlap: bool = True    # if you want to make communication-computation overlap, 'True' will be faster.
     offload_every_blocks: int = 1   # how many layers per interval do you want to offload a layer
     empty_cache_every_blocks: int = 1   # frequency of empty cache
-    offload_use_amp: bool = False
+    offload_use_amp: bool = True
     offload_amp_dtype: torch.dtype = torch.bfloat16
     offload_upcast_dtype: torch.dtype = torch.float32
     offload_downcast_dtype: torch.dtype = torch.bfloat16
     medium_precision_blocks_on_device: bool = False
+    compress_method: str = "naive_quantization"

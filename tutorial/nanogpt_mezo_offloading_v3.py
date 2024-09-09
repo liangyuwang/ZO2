@@ -112,6 +112,7 @@ class GPT2ModelMezoOffloading(nn.Module, BaseMezoOffloadingModel):
         self.offload_upcast_dtype = self.offloadingConfig.offload_upcast_dtype
         self.offload_downcast_dtype = self.offloadingConfig.offload_downcast_dtype
         self.medium_precision_blocks_on_device = self.offloadingConfig.medium_precision_blocks_on_device
+        self.compress_method = self.offloadingConfig.compress_method
         self.set_offloading_args(n_layer=self.config.n_layer)
 
     def offloading_reinit(self):

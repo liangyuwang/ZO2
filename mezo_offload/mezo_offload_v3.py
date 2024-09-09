@@ -29,6 +29,7 @@ class BaseMezoOffloadingModel(BaseMezoModel):
         self.offload_upcast_dtype: torch.dtype = torch.float32
         self.offload_downcast_dtype: torch.dtype = torch.bfloat16
         self.medium_precision_blocks_on_device: bool = False
+        self.compress_method: str = "naive_quantization"
         self.set_offloading_args(n_layer=...)
 
     def set_offloading_args(self, n_layer):
@@ -126,12 +127,14 @@ class BaseMezoOffloadingModel(BaseMezoModel):
     def compress_encode(self, module:nn.Module):
         if next(module.parameters()).dtype == self.offload_downcast_dtype:
             return module
-        module = module.to(dtype=self.offload_downcast_dtype)
+        if self.compress_method == "naive_quantization":
+            module = module.to(dtype=self.offload_downcast_dtype)
         return module
     
     @torch.inference_mode
     def compress_decode(self, module:nn.Module):
         if next(module.parameters()).dtype == self.offload_upcast_dtype:
             return module
-        module = module.to(dtype=self.offload_upcast_dtype)
+        if self.compress_method == "naive_quantization":
+            module = module.to(dtype=self.offload_upcast_dtype)
         return module

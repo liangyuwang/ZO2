@@ -13,7 +13,7 @@ from tutorial import (
     GPT2ModelMezo,
     # GPT2ModelMezoOffloading
 )
-from tutorial.nanogpt_mezo_offloading_v2 import GPT2ModelMezoOffloading
+from tutorial.nanogpt_mezo_offloading_v3 import GPT2ModelMezoOffloading
 
 
 def seed_everything(seed: int):
@@ -132,8 +132,13 @@ def mezo_performance():
     input = {"idx": x, "targets": y}
     torch.cuda.reset_peak_memory_stats()
     for i in tqdm(range(trainConfig.max_steps)):
-        check_time_cost(i, model_ref, **input)
-        check_peak_memory_usage(i, modelConfig.device, True)
+        if offloadingConfig.offload_use_amp:
+            with torch.autocast("cuda", offloadingConfig.offload_amp_dtype):
+                check_time_cost(i, model_ref, **input)
+                check_peak_memory_usage(i, modelConfig.device, True)
+        else:
+            check_time_cost(i, model_ref, **input)
+            check_peak_memory_usage(i, modelConfig.device, True)
 
 def mezo_offloading_performance(overlap=True):
     seed_everything(trainConfig.seed)
@@ -149,13 +154,8 @@ def mezo_offloading_performance(overlap=True):
     input = {"idx": x, "targets": y}
     torch.cuda.reset_peak_memory_stats()
     for i in tqdm(range(trainConfig.max_steps)):
-        if offloadingConfig.offload_use_amp:
-            with torch.autocast("cuda", offloadingConfig.offload_amp_dtype):
-                check_time_cost(i, model, **input)
-                check_peak_memory_usage(i, modelConfig.device, True)
-        else:
-            check_time_cost(i, model, **input)
-            check_peak_memory_usage(i, modelConfig.device, True)
+        check_time_cost(i, model, **input)
+        check_peak_memory_usage(i, modelConfig.device, True)
 
 def train_torch():
     seed_everything(trainConfig.seed)
@@ -218,11 +218,7 @@ def train_mezo_offloading():
         # train
         model.zo_training = True
         model.grad_accum = False
-        if offloadingConfig.offload_use_amp:
-            with torch.autocast("cuda", offloadingConfig.offload_amp_dtype):
-                (_, _), (loss, _) = model(**input)
-        else:
-            (_, _), (loss, _) = model(**input)
+        (_, _), (loss, _) = model(**input)
         tqdm.write("Iteration {}, loss: {}, projected grad: {}".format(i, loss, model.projected_grad.abs()))
 
 def eval_mezo():
@@ -266,13 +262,13 @@ if __name__=="__main__":
     mezoConfig = MezoConfig()
     offloadingConfig = OffloadingConfig()
 
-    eval_acc()
+    # eval_acc()
     # mezo_performance()
     # mezo_offloading_performance(overlap=True)
 
     # train_torch()
     # train_mezo()
-    # train_mezo_offloading()
+    train_mezo_offloading()
 
     # eval_mezo()
     # eval_mezo_offloading()
