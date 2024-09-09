@@ -26,7 +26,7 @@ class TrainConfig:
     epoch: int = -1
     total_token_batch_size: int = 1024 * 2  # 524288, 2**19, about 0.5 tokens per batch
     warmup_steps: int = 715
-    max_steps: int = 100
+    max_steps: int = 300
     check_every_steps: int = 1
     val_every_steps: int = 250
     save_every_steps: int = 5000
@@ -43,17 +43,11 @@ class TrainConfig:
     wait_every_step: int = 1
 
 @dataclass
-class DataConfig:
-    path: str = "../../../../dataset/fineweb/fineweb-edu-10BT/"
-    num_workers: int = 4
-    shuffle: bool = False
-
-@dataclass
 class MezoConfig:
     max_zo_random_seed: int = 1000000000
     zo_eps: float = 1e-3
     non_diff: bool = False
-    zo_lr: float = 1e-7
+    zo_lr: float = 1e-3
     zo_weight_decay: float = 1e-1
 
 @dataclass
@@ -61,8 +55,10 @@ class OffloadingConfig:
     offload_to_device: torch.device = "cpu"
     offload_from_device: torch.device = "cuda:0"
     overlap: bool = True    # if you want to make communication-computation overlap, 'True' will be faster.
-    offload_every_blocks: int = 2   # how many layers per interval do you want to offload a layer
+    offload_every_blocks: int = 1   # how many layers per interval do you want to offload a layer
     empty_cache_every_blocks: int = 1   # frequency of empty cache
-    offload_use_amp: bool = True
+    offload_use_amp: bool = False
     offload_amp_dtype: torch.dtype = torch.bfloat16
-    medium_precision_blocks_on_device: bool = True
+    offload_upcast_dtype: torch.dtype = torch.float32
+    offload_downcast_dtype: torch.dtype = torch.bfloat16
+    medium_precision_blocks_on_device: bool = False
