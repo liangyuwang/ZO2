@@ -90,12 +90,10 @@ class BaseMezoOffloadingModel(BaseMezoModel):
         self.uploaded_layer_idx_counter = 0
 
     @torch.inference_mode
-    def zo_dual_forward(self, module:nn.Module, dual_inputs, update=True, zero_grad=False, amp_cast=False):
+    def zo_dual_forward(self, module:nn.Module, dual_inputs, update=True, amp_cast=False):
         input1, input2 = dual_inputs
         if (self.projected_grad != 0 and not self.grad_accum) and update:
             self._zo_update(module)
-            if zero_grad:
-                self._zo_zero_grad()
         cloned_module = self._module_clone(module)
         self._zo_perturb_parameters(cloned_module, scaling_factor=1)
         out1 = cloned_module(input1)

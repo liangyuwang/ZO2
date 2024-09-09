@@ -7,6 +7,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 from .mezo import BaseMezoModel
+from .compress import Quantization
 
 
 class BaseMezoOffloadingModel(BaseMezoModel):
@@ -49,6 +50,7 @@ class BaseMezoOffloadingModel(BaseMezoModel):
         print(f"Transformer blocks {self.offload_layer_ids} will be offloaded to {self.offload_to_device}")
         self.offload_stream = torch.cuda.Stream()
         self.upload_stream = torch.cuda.Stream()
+        self.quantization = Quantization(in_dtype=self.offload_upcast_dtype, out_dtype=self.offload_downcast_dtype)
 
     def offloading_reinit(self):
         # init modules in the Model
@@ -93,14 +95,12 @@ class BaseMezoOffloadingModel(BaseMezoModel):
         self.uploaded_layer_idx_counter = 0
 
     @torch.inference_mode
-    def zo_dual_forward(self, module:nn.Module, dual_inputs, update=True, zero_grad=False, amp_cast=False):
+    def zo_dual_forward(self, module:nn.Module, dual_inputs, update=True, amp_cast=False):
         input1, input2 = dual_inputs
         if self.offload_use_amp and amp_cast:
             module = self.compress_decode(module)
         if (self.projected_grad != 0 and not self.grad_accum) and update:
             self._zo_update(module)
-            if zero_grad:
-                self._zo_zero_grad()
         cloned_module = self._module_clone(module)
         self._zo_perturb_parameters(cloned_module, scaling_factor=1)
         if self.offload_use_amp and amp_cast:
@@ -129,6 +129,8 @@ class BaseMezoOffloadingModel(BaseMezoModel):
             return module
         if self.compress_method == "naive_quantization":
             module = module.to(dtype=self.offload_downcast_dtype)
+        # for p in module.parameters():
+        #     p.data = self.quantization.quantize_weight(p.data)
         return module
     
     @torch.inference_mode
@@ -137,4 +139,6 @@ class BaseMezoOffloadingModel(BaseMezoModel):
             return module
         if self.compress_method == "naive_quantization":
             module = module.to(dtype=self.offload_upcast_dtype)
+        # for p in module.parameters():
+        #     p.data = self.quantization.dequantize_weight(p.data)
         return module
