@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from mezo_offload import BaseMezoModel
+from zo_offload import BaseMezoModel
 
 from .configs import ModelConfig, MezoConfig
 from .nanogpt import Block

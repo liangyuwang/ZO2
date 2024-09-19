@@ -7,7 +7,6 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 from .mezo import BaseMezoModel
-from .compress import Quantization
 
 
 class BaseMezoOffloadingModel(BaseMezoModel):
@@ -50,7 +49,6 @@ class BaseMezoOffloadingModel(BaseMezoModel):
         print(f"Transformer blocks {self.offload_layer_ids} will be offloaded to {self.offload_to_device}")
         self.offload_stream = torch.cuda.Stream()
         self.upload_stream = torch.cuda.Stream()
-        self.quantization = Quantization(in_dtype=self.offload_upcast_dtype, out_dtype=self.offload_downcast_dtype)
 
     def offloading_reinit(self):
         # init modules in the Model
