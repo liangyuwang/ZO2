@@ -10,6 +10,10 @@ from .. import mezo
 
 class BaseMezoModel(mezo.BaseMezoModel):
 
+    def set_mezo_args(self):
+        super().set_mezo_args()
+        self.last_zo_random_seed = None
+
     @torch.inference_mode
     def zo_dual_forward(self, module:nn.Module, dual_inputs, update=True):
         input1, input2 = dual_inputs
@@ -24,7 +28,20 @@ class BaseMezoModel(mezo.BaseMezoModel):
         return out1, out2
     
     @torch.inference_mode
+    def _zo_update(self, module:nn.Module):
+        torch.manual_seed(self.last_zo_random_seed)
+        for name, param in module.named_parameters():
+            # Resample z
+            z = torch.normal(mean=0, std=1, size=param.data.size(), device=param.data.device, dtype=param.data.dtype)
+            # z = torch.ones(size=param.data.size(), device=param.data.device, dtype=param.data.dtype)
+            if param.requires_grad:
+                if "bias" not in name and "layer_norm" not in name and "layernorm" not in name:
+                    param.data = param.data - self._get_learning_rate() * (self.projected_grad * z + self.zo_weight_decay * param.data)
+                else:
+                    param.data = param.data - self._get_learning_rate() * (self.projected_grad * z)
+
+    @torch.inference_mode
     def zo_final_step(self, loss1, loss2):
         super().zo_final_step(loss1, loss2)
+        self.last_zo_random_seed = self.zo_random_seed
         self.set_random_seed()
-    
